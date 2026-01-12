@@ -4,12 +4,12 @@ module ALUControl(
     output reg [3:0] alu_control
 );
 
-    always @(posedge clk) begin
+    always @(*) begin
         case (funct3)
             3'b000: alu_control = 4'b0010; // ADDI
-            3'b111: alu_control = 4'b0000; // AND
-            3'b110: alu_control = 4'b0001; // OR
-            3'b010: alu_control = 4'b0111; // SLT
+            3'b111: alu_control = 4'b0000; // ANDI
+            3'b110: alu_control = 4'b0001; // ORI
+            3'b010: alu_control = 4'b0111; // SLTI
         endcase
     end
 
