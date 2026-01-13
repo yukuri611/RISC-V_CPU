@@ -8,7 +8,7 @@ module IMem(
     
 
     initial begin
-        $readmemh("program/i_type.txt", memory);
+        $readmemh("program/hex/load_store.hex", memory);
     end
     
     

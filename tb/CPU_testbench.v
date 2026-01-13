@@ -20,7 +20,7 @@ module CPU_testbench;
         reset = 1;
         #4
         reset = 0;
-        #10
+        #20
         $finish;
     end
 

@@ -1,0 +1,10 @@
+tb/CPU_testbench.v
+
+src/CPU.v
+src/PC.v               
+src/ALU.v
+src/ALUControl.v
+src/RegisterFile.v
+src/IMem.v           
+src/DMem.v
+src/Decoder.v

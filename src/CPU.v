@@ -3,6 +3,8 @@ module CPU(
     input wire reset
 );
 
+    `include "src/include/define.vh"
+
     wire [31:0] pc_out;
 
     PC PC(
@@ -22,6 +24,7 @@ module CPU(
 
     wire [6:0] opcode;
     wire [4:0] rs1;
+    wire [4:0] rs2;
     wire [4:0] rd;
     wire [2:0] funct3;
     wire [11:0] imm;
@@ -31,34 +34,70 @@ module CPU(
         .instruction(instruction),
         .opcode(opcode),
         .rs1(rs1),
+        .rs2(rs2),
         .rd(rd),
         .funct3(funct3),
         .imm(imm)
     );
 
-    wire [31:0] read_data1;
-    wire [31:0] write_data;
+    wire [31:0] reg_read_data1;
+    wire [31:0] reg_read_data2;
+    reg [31:0] reg_write_data;
     wire reg_write = 1'b1; 
     RegisterFile RegisterFile(
         .clk(clk),
         .read_reg1(rs1),
+        .read_reg2(rs2),
         .write_reg(rd),
-        .write_data(write_data),
+        .write_data(reg_write_data),
         .reg_write(reg_write),
-        .read_data1(read_data1)
+        .read_data1(reg_read_data1),
+        .read_data2(reg_read_data2)
     );
 
     wire [3:0] alu_control;
+    reg [1:0] ALUOp;
+    always @(*) begin
+        case (opcode)
+            `OP_IMM: ALUOp = 2'b10;
+            `OP_LOAD:     ALUOp = 2'b00;
+            `OP_STORE:    ALUOp = 2'b00;
+            default:    ALUOp = 2'b10;
+        endcase
+    end
     ALUControl ALUControl(
         .clk(clk),
+        .ALUOp(ALUOp),
         .funct3(funct3),
         .alu_control(alu_control)
     );
 
 
-    wire [31:0] alu_input1 = read_data1;
-    wire [31:0] alu_input2 = {{20{imm[11]}}, imm}; // Sign-extend immediate
+    reg [31:0] alu_input1;
+    reg [31:0] alu_input2;
     wire [31:0] alu_result;
+
+    always @(*) begin
+        case (opcode) 
+            `OP_IMM: begin
+                alu_input1 = reg_read_data1;
+                alu_input2 = {{20{imm[11]}}, imm};
+            end
+            `OP_LOAD: begin
+                alu_input1 = reg_read_data1;
+                alu_input2 = {{20{imm[11]}}, imm};
+            end
+            `OP_STORE: begin
+                alu_input1 = reg_read_data1;
+                alu_input2 = {{20{imm[11]}}, imm};
+            end
+            default: begin
+                alu_input1 = reg_read_data1;
+                alu_input2 = 32'd0;
+            end
+        endcase
+    end
+
     ALU ALU(
         .clk(clk),
         .operand1(alu_input1),
@@ -67,6 +106,30 @@ module CPU(
         .alu_result(alu_result)
     );
 
-    assign write_data = alu_result;
+
+    wire [31:0] mem_read_data;
+    DMem DMem(
+        .clk(clk),
+        .addr(alu_result),
+        .write_data(reg_read_data2),
+        .mem_read(opcode == `OP_LOAD),
+        .mem_write(opcode == `OP_STORE),
+        .read_data(mem_read_data)
+    );
+
+
+    reg MemtoReg;
+    always @(*) begin
+        case (opcode)
+            `OP_LOAD:    MemtoReg = 1'b1;
+            `OP_IMM:  MemtoReg = 1'b0;
+            `OP_STORE:      MemtoReg = 1'b0;
+            default:     MemtoReg = 1'b0;
+        endcase
+    end
+
+    always @(*) begin
+        reg_write_data = MemtoReg ? mem_read_data : alu_result;
+    end
 
 endmodule
