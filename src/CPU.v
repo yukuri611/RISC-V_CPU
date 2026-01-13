@@ -27,17 +27,19 @@ module CPU(
     wire [4:0] rs2;
     wire [4:0] rd;
     wire [2:0] funct3;
+    wire [6:0] funct7;
     wire [11:0] imm;
 
     Decoder Decoder(
         .clk(clk),
         .instruction(instruction),
-        .opcode(opcode),
-        .rs1(rs1),
+        .imm(imm),
+        .funct7(funct7),
         .rs2(rs2),
-        .rd(rd),
+        .rs1(rs1),
         .funct3(funct3),
-        .imm(imm)
+        .rd(rd),
+        .opcode(opcode)
     );
 
     wire [31:0] reg_read_data1;
@@ -56,18 +58,11 @@ module CPU(
     );
 
     wire [3:0] alu_control;
-    reg [1:0] ALUOp;
-    always @(*) begin
-        case (opcode)
-            `OP_IMM: ALUOp = 2'b10;
-            `OP_LOAD:     ALUOp = 2'b00;
-            `OP_STORE:    ALUOp = 2'b00;
-            default:    ALUOp = 2'b10;
-        endcase
-    end
+    
     ALUControl ALUControl(
         .clk(clk),
-        .ALUOp(ALUOp),
+        .opcode(opcode),
+        .funct7(funct7),
         .funct3(funct3),
         .alu_control(alu_control)
     );
@@ -90,6 +85,10 @@ module CPU(
             `OP_STORE: begin
                 alu_input1 = reg_read_data1;
                 alu_input2 = {{20{imm[11]}}, imm};
+            end
+            `OP_R_TYPE: begin
+                alu_input1 = reg_read_data1;
+                alu_input2 = reg_read_data2;
             end
             default: begin
                 alu_input1 = reg_read_data1;

@@ -5,7 +5,7 @@ module ALU(
     input wire [3:0] alu_control,
     output reg [31:0] alu_result
 );
-    always @(*) begin // Combinational logic
+    always @(*) begin
         case (alu_control)
 
             4'b0000: alu_result <= operand1 & operand2; 

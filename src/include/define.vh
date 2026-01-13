@@ -4,5 +4,6 @@
 `define OP_IMM    7'b0010011
 `define OP_LOAD   7'b0000011
 `define OP_STORE  7'b0100011
+`define OP_R_TYPE 7'b0110011
 
 `endif
