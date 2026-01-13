@@ -8,7 +8,7 @@ module IMem(
     
 
     initial begin
-        $readmemh("program/hex/b_type.hex", memory);
+        $readmemh("program/hex/jump.hex", memory);
     end
     
     

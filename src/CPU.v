@@ -29,7 +29,7 @@ module CPU(
     wire [4:0] rd;
     wire [2:0] funct3;
     wire [6:0] funct7;
-    wire [11:0] imm;
+    wire [31:0] imm;
 
     Decoder Decoder(
         .clk(clk),
@@ -77,15 +77,15 @@ module CPU(
         case (opcode) 
             `OP_IMM: begin
                 alu_input1 = reg_read_data1;
-                alu_input2 = {{20{imm[11]}}, imm};
+                alu_input2 = imm;
             end
             `OP_LOAD: begin
                 alu_input1 = reg_read_data1;
-                alu_input2 = {{20{imm[11]}}, imm};
+                alu_input2 = imm;
             end
             `OP_STORE: begin
                 alu_input1 = reg_read_data1;
-                alu_input2 = {{20{imm[11]}}, imm};
+                alu_input2 = imm;
             end
             `OP_R_TYPE: begin
                 alu_input1 = reg_read_data1;
@@ -94,6 +94,10 @@ module CPU(
             `OP_BRANCH: begin
                 alu_input1 = reg_read_data1;
                 alu_input2 = reg_read_data2;
+            end
+            `OP_JALR: begin
+                alu_input1 = reg_read_data1;
+                alu_input2 = imm;
             end
             default: begin
                 alu_input1 = reg_read_data1;
@@ -133,7 +137,12 @@ module CPU(
     end
 
     always @(*) begin
-        reg_write_data = MemtoReg ? mem_read_data : alu_result;
+        case (opcode)
+            `OP_JAL,
+            `OP_JALR: reg_write_data = pc_plus_4;
+            default:
+                reg_write_data = MemtoReg ? mem_read_data : alu_result;
+        endcase
     end
 
     reg [31:0] pc_plus_4;
@@ -141,9 +150,25 @@ module CPU(
     reg branch_taken;
 
     always @(*) begin
+        branch_taken = 1'b0;
         pc_plus_4 = current_pc + 4;
-        pc_branch = current_pc + {{19{imm[11]}}, imm, 1'b0};
-        branch_taken = (opcode == `OP_BRANCH) && (alu_result == 32'b0);
+        pc_branch = 32'b0;
+        case (opcode)
+            `OP_JAL: begin
+                branch_taken = 1'b1;
+                pc_branch = current_pc + imm;
+            end
+            `OP_JALR: begin
+                branch_taken = 1'b1;
+                pc_branch = (reg_read_data1 + imm) & ~32'b1;
+            end
+            `OP_BRANCH: begin
+                if (alu_result == 32'b0) begin
+                    branch_taken = 1'b1;
+                    pc_branch = current_pc + imm;
+                end
+            end
+        endcase
         next_pc = branch_taken ? pc_branch : pc_plus_4;
     end
 

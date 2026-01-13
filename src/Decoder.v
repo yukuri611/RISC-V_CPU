@@ -1,7 +1,7 @@
 module Decoder(
     input wire clk,
     input wire [31:0] instruction,
-    output reg [11:0] imm,
+    output reg [31:0] imm,
     output wire [6:0] funct7,
     output wire [4:0] rs2,
     output wire [4:0] rs1,
@@ -19,12 +19,19 @@ module Decoder(
     assign opcode = instruction[6:0];
     
     always @(*) begin
-        if (opcode == `OP_STORE) begin
-            imm = {instruction[31:25], instruction[11:7]};
-        end else if (opcode == `OP_BRANCH) begin
-            imm = {instruction[31], instruction[7], instruction[30:25], instruction[11:8]};
-        end else begin
-            imm = instruction[31:20];
-        end
+        case (opcode) 
+            `OP_STORE: begin // S-type
+                imm = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]}; 
+            end
+            `OP_BRANCH: begin // B-type
+                imm = {{20{instruction[31]}}, instruction[31], instruction[7], instruction[30:25], instruction[11:8], 1'b0};
+            end
+            `OP_JAL: begin // J-type
+                imm = {{12{instruction[31]}}, instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1'b0}; 
+            end // I-type
+            default: begin
+                imm = {{20{instruction[31]}}, instruction[31:20]};
+            end
+        endcase
     end    
 endmodule

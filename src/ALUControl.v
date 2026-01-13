@@ -9,6 +9,8 @@ module ALUControl(
     always @(*) begin
         if (opcode == `OP_LOAD || opcode == `OP_STORE) begin
             alu_control = 4'b0010; // Load/Store: ADD
+        end else if (opcode == `OP_JAL || opcode == `OP_JALR) begin
+            alu_control = 4'b0010; // JAL/JALR: ADD
         end else if (opcode == `OP_IMM) begin
             case (funct3)
                 3'b000: alu_control = 4'b0010; // ADDI
