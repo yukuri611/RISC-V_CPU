@@ -7,7 +7,6 @@ module ALU(
 );
     always @(*) begin
         case (alu_control)
-
             4'b0000: alu_result <= operand1 & operand2; 
             4'b0001: alu_result <= operand1 | operand2;
             4'b0010: alu_result <= operand1 + operand2;

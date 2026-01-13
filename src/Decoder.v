@@ -21,6 +21,8 @@ module Decoder(
     always @(*) begin
         if (opcode == `OP_STORE) begin
             imm = {instruction[31:25], instruction[11:7]};
+        end else if (opcode == `OP_BRANCH) begin
+            imm = {instruction[31], instruction[7], instruction[30:25], instruction[11:8]};
         end else begin
             imm = instruction[31:20];
         end

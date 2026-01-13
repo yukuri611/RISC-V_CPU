@@ -5,20 +5,21 @@ module CPU(
 
     `include "src/include/define.vh"
 
-    wire [31:0] pc_out;
+    wire [31:0] current_pc;
+    reg [31:0] next_pc;
 
     PC PC(
         .clk(clk), 
         .reset(reset),
-        .pc_in(pc_out + 4),
-        .pc_out(pc_out)
+        .pc_in(next_pc),
+        .pc_out(current_pc)
     );  
 
     wire [31:0] instruction;
 
     IMem IMem(
         .clk(clk),
-        .addr(pc_out),
+        .addr(current_pc),
         .instruction(instruction)
     );
 
@@ -90,6 +91,10 @@ module CPU(
                 alu_input1 = reg_read_data1;
                 alu_input2 = reg_read_data2;
             end
+            `OP_BRANCH: begin
+                alu_input1 = reg_read_data1;
+                alu_input2 = reg_read_data2;
+            end
             default: begin
                 alu_input1 = reg_read_data1;
                 alu_input2 = 32'd0;
@@ -130,5 +135,18 @@ module CPU(
     always @(*) begin
         reg_write_data = MemtoReg ? mem_read_data : alu_result;
     end
+
+    reg [31:0] pc_plus_4;
+    reg [31:0] pc_branch;
+    reg branch_taken;
+
+    always @(*) begin
+        pc_plus_4 = current_pc + 4;
+        pc_branch = current_pc + {{19{imm[11]}}, imm, 1'b0};
+        branch_taken = (opcode == `OP_BRANCH) && (alu_result == 32'b0);
+        next_pc = branch_taken ? pc_branch : pc_plus_4;
+    end
+
+
 
 endmodule
