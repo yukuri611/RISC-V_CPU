@@ -8,19 +8,19 @@ module DMem(
 );
 
    
-    reg [31:0] memory [0:255];
+    reg [31:0] memory [0:4095];
 
     initial begin 
-        for (integer i = 0; i < 256; i = i + 1) begin
+        for (integer i = 0; i < 4096; i = i + 1) begin
             memory[i] = 32'b0;
         end
     end
     
     always @(posedge clk) begin
         if (mem_write) begin
-            memory[addr[9:2]] <= write_data;
+            memory[addr[13:2]] <= write_data;
         end
     end
 
-    assign read_data = memory[addr[9:2]];
+    assign read_data = (mem_read) ? memory[addr[13:2]] : 32'b0;
 endmodule

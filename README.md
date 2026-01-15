@@ -12,14 +12,10 @@
 
 
 ## コンパイル方法
-iverilog -f file_list.txt
-vvp a.out
-gtkwave .\CPU_testbench.vcd
+./run.bat
 
 ## クロスコンパイル 
 [使用したコンパイラー](https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases)
 
-riscv-none-elf-as -march=rv32i -o test.o test.s
-riscv-none-elf-objdump -d program/machine/load_store.o
-(hexファイルに手でコピペ)
+./build.bat
 

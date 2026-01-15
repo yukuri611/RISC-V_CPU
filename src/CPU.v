@@ -46,7 +46,19 @@ module CPU(
     wire [31:0] reg_read_data1;
     wire [31:0] reg_read_data2;
     reg [31:0] reg_write_data;
-    wire reg_write = 1'b1; 
+    reg reg_write;
+    always @(*) begin
+        case (opcode)
+            `OP_R_TYPE,
+            `OP_IMM,
+            `OP_LOAD,
+            `OP_JAL,
+            `OP_JALR: reg_write = 1'b1;
+            `OP_STORE,
+            `OP_BRANCH: reg_write = 1'b0;
+            default: reg_write = 1'b0;
+        endcase
+    end
     RegisterFile RegisterFile(
         .clk(clk),
         .read_reg1(rs1),
@@ -148,6 +160,10 @@ module CPU(
     reg [31:0] pc_plus_4;
     reg [31:0] pc_branch;
     reg branch_taken;
+    wire is_equal = (reg_read_data1 == reg_read_data2);
+    wire is_less_signed = ($signed(reg_read_data1) < $signed(reg_read_data2));
+    wire is_less_unsigned = (reg_read_data1 < reg_read_data2);
+
 
     always @(*) begin
         branch_taken = 1'b0;
@@ -163,8 +179,16 @@ module CPU(
                 pc_branch = (reg_read_data1 + imm) & ~32'b1;
             end
             `OP_BRANCH: begin
-                if (alu_result == 32'b0) begin
-                    branch_taken = 1'b1;
+                case (funct3)
+                    3'b000: branch_taken = is_equal;        // BEQ
+                    3'b001: branch_taken = !is_equal;       // BNE
+                    3'b100: branch_taken = is_less_signed;  // BLT
+                    3'b101: branch_taken = !is_less_signed; // BGE
+                    3'b110: branch_taken = is_less_unsigned;// BLTU
+                    3'b111: branch_taken = !is_less_unsigned;// BGEU
+                    default: branch_taken = 1'b0;
+                endcase
+                if (branch_taken) begin
                     pc_branch = current_pc + imm;
                 end
             end

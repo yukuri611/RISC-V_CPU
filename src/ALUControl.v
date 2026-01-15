@@ -32,9 +32,7 @@ module ALUControl(
                 3'b010: alu_control = 4'b0111; // SLT
             endcase
         end else if (opcode == `OP_BRANCH) begin
-            case (funct3)
-                3'b000: alu_control = 4'b0110; // BEQ
-            endcase
+            alu_control = 4'b0110; // SUB for branch comparisons
         end else begin
             alu_control = 4'b1111; // NOP or undefined
             
