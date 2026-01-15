@@ -6,7 +6,7 @@
 - S-type
   - sw
 - B-type
-  - beq 
+  - beq, bne, blt, bge, bltu, bgeu
 - J-type
   - jal
 
