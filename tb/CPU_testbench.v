@@ -17,9 +17,9 @@ module CPU_testbench;
     );
 
     initial begin
-        reset = 1;
-        #4
         reset = 0;
+        #4
+        reset = 1;
         #3000
         $finish;
     end
