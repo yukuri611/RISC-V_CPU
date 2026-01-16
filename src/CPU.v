@@ -11,13 +11,23 @@ module CPU(
 
     wire [31:0] current_pc;
     reg [31:0] next_pc;
+    reg [31:0] next_pc_final;
 
     PC PC(
         .clk(clk), 
         .reset(reset),
-        .pc_in(next_pc),
+        .write_enable(!stall),
+        .pc_in(next_pc_final),
         .pc_out(current_pc)
     );      
+
+    always @(*) begin
+        if (stall) begin
+            next_pc_final = current_pc;
+        end else begin
+            next_pc_final = next_pc;
+        end
+    end
     
     wire [31:0] instruction;
 
@@ -47,7 +57,7 @@ module CPU(
 
     Decoder Decoder(
         .clk(clk),
-        .instruction(IF_ID_instruction),
+        .instruction(IF_ID_Instruction),
         .imm(imm),
         .funct7(funct7),
         .rs2(rs2),
@@ -77,10 +87,28 @@ module CPU(
         .read_data2(reg_read_data2)
     );
 
+    wire is_branch_instruction = (opcode == `OP_BRANCH) || (opcode == `OP_JAL) || (opcode == `OP_JALR);
+    wire stall;
+
+    HazardDetectionUnit HazardDetectionUnit(
+        .ID_Ex_Mem_Read(ID_Ex_Mem_Read),
+        .Ex_Mem_Mem_Read(Ex_Mem_Mem_Read),
+        .ID_Ex_rd(ID_Ex_rd_index),
+        .IF_Id_rs1(rs1),
+        .IF_Id_rs2(rs2),
+        .is_branch(is_branch_instruction),
+        .ID_Ex_Reg_Write(ID_Ex_Reg_Write),
+        .Ex_Mem_Reg_Write(Ex_Mem_Reg_Write),
+        .Ex_Mem_rd(Ex_Mem_rd_index),
+        .stall(stall)
+    );
+
     // Control Unit Logic
     reg reg_write_ctrl;
     reg alu_src_ctrl;
     reg mem_to_reg_ctrl;
+    reg is_link_control;
+
 
     always @(*) begin
         // RegWrite
@@ -91,8 +119,8 @@ module CPU(
 
         // ALUSrc
         case (opcode)
-            `OP_IMM, `OP_LOAD, `OP_STORE, `OP_JALR: alu_src_ctrl = 1'b1;
-            default: alu_src_ctrl = 1'b0;
+            `OP_IMM, `OP_LOAD, `OP_STORE, `OP_JALR: alu_src_ctrl = 1'b1; // immediate
+            default: alu_src_ctrl = 1'b0; // register
         endcase
 
         // MemtoReg
@@ -100,20 +128,47 @@ module CPU(
             `OP_LOAD: mem_to_reg_ctrl = 1'b1;
             default:  mem_to_reg_ctrl = 1'b0;
         endcase
+
+        // Is Link Control
+        case (opcode)
+            `OP_JAL, `OP_JALR: is_link_control = 1'b1;
+            default: is_link_control = 1'b0;
+        endcase
     end
+
+    //Forwarding MUX
+    reg [31:0] branch_op1, branch_op2;
+    always @(*) begin
+        if (ID_Ex_Reg_Write && (ID_Ex_rd_index != 0) && (ID_Ex_rd_index == rs1)) begin
+            branch_op1 = alu_result;
+        end else if(Ex_Mem_Reg_Write && (Ex_Mem_rd_index != 0) && (Ex_Mem_rd_index == rs1)) begin
+            branch_op1 = Ex_Mem_ALU_Result;
+        end else begin
+            branch_op1 = reg_read_data1;
+        end
+
+        if (ID_Ex_Reg_Write && (ID_Ex_rd_index != 0) && (ID_Ex_rd_index == rs2)) begin
+            branch_op2 = alu_result;
+        end else if(Ex_Mem_Reg_Write && (Ex_Mem_rd_index != 0) && (Ex_Mem_rd_index == rs2)) begin
+            branch_op2 = Ex_Mem_ALU_Result;
+        end else begin
+            branch_op2 = reg_read_data2;
+        end
+    end
+    
     
     // branch jump logic
     reg [31:0] pc_plus_4;
     reg [31:0] pc_branch;
     reg branch_taken;
-    wire is_equal = (reg_read_data1 == reg_read_data2);
-    wire is_less_signed = ($signed(reg_read_data1) < $signed(reg_read_data2));
-    wire is_less_unsigned = (reg_read_data1 < reg_read_data2);
+    wire is_equal = (branch_op1 == branch_op2);
+    wire is_less_signed = ($signed(branch_op1) < $signed(branch_op2));
+    wire is_less_unsigned = (branch_op1 < branch_op2);
 
 
     always @(*) begin
         branch_taken = 1'b0;
-        pc_plus_4 = IF_ID_PC + 4;
+        pc_plus_4 = current_pc + 4;
         pc_branch = 32'b0;
         case (opcode)
             `OP_JAL: begin
@@ -122,7 +177,7 @@ module CPU(
             end
             `OP_JALR: begin
                 branch_taken = 1'b1;
-                pc_branch = (reg_read_data1 + imm) & ~32'b1;
+                pc_branch = (branch_op1 + imm) & ~32'b1;
             end
             `OP_BRANCH: begin
                 case (funct3)
@@ -148,7 +203,7 @@ module CPU(
     reg [31:0] ID_Ex_rs1_data, ID_Ex_rs2_data, ID_Ex_imm, ID_Ex_PC;
     reg [4:0]  ID_Ex_rd_index;
     reg [3:0]  ID_Ex_ALU_Control;
-    reg        ID_Ex_ALU_Src;
+    reg        ID_Ex_ALU_Src, ID_Ex_Is_Link;
 
 
     // =========================================================================
@@ -158,9 +213,45 @@ module CPU(
     reg [31:0] alu_input2;
     wire [31:0] alu_result;
 
+    // Forwarding Mux
+
+    reg[1:0] forward_a, forward_b;
+
     always @(*) begin
-        alu_input1 = ID_Ex_rs1_data;
-        alu_input2 = ID_Ex_ALU_Src ? ID_Ex_imm : ID_Ex_rs2_data;
+        if (Ex_Mem_Reg_Write && (Ex_Mem_rd_index != 0) && (Ex_Mem_rd_index == ID_Ex_rs1_index)) begin
+            forward_a = 2'b10;
+        end else if (Mem_WB_Reg_Write && (Mem_WB_rd_index != 0) && (Mem_WB_rd_index == ID_Ex_rs1_index)) begin            
+            forward_a = 2'b01;
+        end else begin
+            forward_a = 2'b00;
+        end
+
+        if (Ex_Mem_Reg_Write && (Ex_Mem_rd_index != 0) && (Ex_Mem_rd_index == ID_Ex_rs2_index)) begin
+            forward_b = 2'b10;
+        end else if (Mem_WB_Reg_Write && (Mem_WB_rd_index != 0) && (Mem_WB_rd_index == ID_Ex_rs2_index)) begin
+            forward_b = 2'b01;
+        end else begin
+            forward_b = 2'b00;
+        end
+    end
+
+    reg [31:0] forwarded_rs2_data;
+    always @(*) begin
+        case (forward_a)
+            2'b00: alu_input1 = ID_Ex_rs1_data;
+            2'b10: alu_input1 = Ex_Mem_ALU_Result;
+            2'b01: alu_input1 = reg_write_data;
+            default: alu_input1 = ID_Ex_rs1_data;
+        endcase
+
+        case (forward_b)
+            2'b00: forwarded_rs2_data = ID_Ex_rs2_data;
+            2'b10: forwarded_rs2_data = Ex_Mem_ALU_Result;
+            2'b01: forwarded_rs2_data = reg_write_data;
+            default: forwarded_rs2_data = ID_Ex_rs2_data;
+        endcase
+
+        alu_input2 = ID_Ex_ALU_Src ? ID_Ex_imm : forwarded_rs2_data;
     end
 
     ALU ALU(
@@ -174,7 +265,7 @@ module CPU(
     // Ex/Mem Pipeline Register
     reg Ex_Mem_Mem_Read, Ex_Mem_Mem_Write, Ex_Mem_Reg_Write, Ex_Mem_Mem_to_Reg;
     reg [31:0] Ex_Mem_ALU_Result, Ex_Mem_rs2_data;
-    reg [4:0]  Ex_Mem_rd_index;
+    reg [4:0]  ID_Ex_rs1_index, ID_Ex_rs2_index, Ex_Mem_rd_index;
 
 
     // =========================================================================
@@ -222,10 +313,13 @@ module CPU(
             ID_Ex_rs1_data <= 32'b0;
             ID_Ex_rs2_data <= 32'b0;
             ID_Ex_imm <= 32'b0;
+            ID_Ex_rs1_index <= 5'b0; 
+            ID_Ex_rs2_index <= 5'b0;    
             ID_Ex_rd_index <= 5'b0;
             ID_Ex_ALU_Src <= 1'b0;
             ID_Ex_ALU_Control <= 4'b0;
             ID_Ex_PC <= 32'b0;
+            ID_Ex_Is_Link <= 1'b0;
             
             // Ex/Mem Pipeline Register
             Ex_Mem_Mem_Read <= 1'b0;
@@ -244,29 +338,58 @@ module CPU(
             Mem_WB_rd_index <= 5'b0;
         end else begin
             // IF/ID Stage
-            IF_ID_PC <= current_pc;
-            IF_ID_Instruction <= instruction;
+            if (!stall) begin
+                if (branch_taken) begin
+                    IF_ID_PC <= 32'b0;
+                    IF_ID_Instruction <= 32'b0;
+                end
+                else begin
+                    IF_ID_PC <= current_pc;
+                    IF_ID_Instruction <= instruction;                    
+                end
+            end
             
             // ID/Ex Stage
-            ID_Ex_Mem_Read <= (opcode == `OP_LOAD);
-            ID_Ex_Mem_Write <= (opcode == `OP_STORE);
-            ID_Ex_Reg_Write <= reg_write_ctrl;
-            ID_Ex_Mem_to_Reg <= mem_to_reg_ctrl;
-            ID_Ex_rs1_data <= reg_read_data1;
-            ID_Ex_rs2_data <= reg_read_data2;
-            ID_Ex_imm <= imm;
-            ID_Ex_rd_index <= rd;
-            ID_Ex_ALU_Src <= alu_src;
-            ID_Ex_ALU_Control <= alu_control;
-            ID_Ex_PC <= current_pc;
-            
+            if (stall) begin
+                // Insert Bubble(reset control signals)
+                ID_Ex_Mem_Read  <= 1'b0;
+                ID_Ex_Mem_Write <= 1'b0;
+                ID_Ex_Reg_Write <= 1'b0;
+                ID_Ex_Mem_to_Reg <= 1'b0;
+                ID_Ex_Is_Link <= 1'b0;
+
+                // reset other signals for debugging clarity
+                ID_Ex_rd_index  <= 5'b0;
+                ID_Ex_rs1_index <= 5'b0; 
+                ID_Ex_rs2_index <= 5'b0;
+                ID_Ex_PC <= 32'b0;
+            end else begin
+                ID_Ex_Mem_Read <= (opcode == `OP_LOAD);
+                ID_Ex_Mem_Write <= (opcode == `OP_STORE);
+                ID_Ex_Reg_Write <= reg_write_ctrl;
+                ID_Ex_Mem_to_Reg <= mem_to_reg_ctrl;
+                ID_Ex_rs1_data <= reg_read_data1;
+                ID_Ex_rs2_data <= reg_read_data2;
+                ID_Ex_imm <= imm;
+                ID_Ex_rs1_index <= rs1;
+                ID_Ex_rs2_index <= rs2;
+                ID_Ex_rd_index <= rd;
+                ID_Ex_ALU_Src <= alu_src_ctrl;
+                ID_Ex_ALU_Control <= alu_control;
+                ID_Ex_PC <= IF_ID_PC;
+                ID_Ex_Is_Link <= is_link_control;
+            end
             // Ex/Mem Stage
             Ex_Mem_Mem_Read <= ID_Ex_Mem_Read;
             Ex_Mem_Mem_Write <= ID_Ex_Mem_Write;
             Ex_Mem_Reg_Write <= ID_Ex_Reg_Write;
             Ex_Mem_Mem_to_Reg <= ID_Ex_Mem_to_Reg;
-            Ex_Mem_ALU_Result <= alu_result;
-            Ex_Mem_rs2_data <= ID_Ex_rs2_data;
+            if (ID_Ex_Is_Link) begin
+                Ex_Mem_ALU_Result <= ID_Ex_PC + 4; // link address
+            end else begin
+                Ex_Mem_ALU_Result <= alu_result;
+            end
+            Ex_Mem_rs2_data <= forwarded_rs2_data;
             Ex_Mem_rd_index <= ID_Ex_rd_index;
             
             // Mem/WB Stage

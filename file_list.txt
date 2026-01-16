@@ -8,3 +8,4 @@ src/RegisterFile.v
 src/IMem.v           
 src/DMem.v
 src/Decoder.v
+src/HazardDetectionUnit.v

@@ -1,8 +1,9 @@
 @echo off
-set TARGET=program\hex\matmul
-set SOURCE_C=program\c\matmul.c
+set FILE_NAME=sum_1_to_10
+set TARGET=program\hex\%FILE_NAME%
+set SOURCE_C=program\c\%FILE_NAME%.c
 set SOURCE_ASM=program\assembly\start.s
-set OUTPUT_ASM=program\assembly\matmul_dump.s
+set OUTPUT_ASM=program\assembly\%FILE_NAME%_dump.s
 
 echo [1/6] Compiling Startup Code...
 rem start.s をコンパイル

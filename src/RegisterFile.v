@@ -22,7 +22,7 @@ module RegisterFile(
     end
     end
 
-    assign read_data1 = (read_reg1 == 5'd0) ? 32'd0 : register[read_reg1];
-    assign read_data2 = (read_reg2 == 5'd0) ? 32'd0 : register[read_reg2];
+    assign read_data1 = (reg_write && (write_reg != 5'd0) && (write_reg == read_reg1)) ? write_data : register[read_reg1];
+    assign read_data2 = (reg_write && (write_reg != 5'd0) && (write_reg == read_reg2)) ? write_data : register[read_reg2];
 
 endmodule

@@ -1,6 +1,7 @@
 module PC(
     input clk,
     input reset,
+    input write_enable,
     input wire [31:0] pc_in,
     output reg [31:0] pc_out
 );
