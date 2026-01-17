@@ -8,7 +8,7 @@ module IMem(
     
 
     initial begin
-        $readmemh("program/hex/fibonacci.hex", memory);
+        $readmemh("program/hex/u_type.hex", memory);
     end
     
     

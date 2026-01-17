@@ -1,14 +1,16 @@
 ## 実装済みの命令
 - R-type
-  - add, sub, and, or, sli
+  - add, sub, and, or, slt
 - I-type
-  - addi, andi, ori, slti, lw, jalr
+  - addi, andi, ori, slti, lw, jalr, slli
 - S-type
   - sw
 - B-type
   - beq, bne, blt, bge, bltu, bgeu
 - J-type
   - jal
+- U-type
+  - lui, auipc
 
 
 ## コンパイル方法

@@ -17,6 +17,7 @@ module ALUControl(
                 3'b111: alu_control = 4'b0000; // ANDI
                 3'b110: alu_control = 4'b0001; // ORI
                 3'b010: alu_control = 4'b0111; // SLTI
+                3'b001: alu_control = 4'b1110; // SLLI
             endcase
         end else if (opcode == `OP_R_TYPE) begin
             case (funct3)
@@ -33,6 +34,8 @@ module ALUControl(
             endcase
         end else if (opcode == `OP_BRANCH) begin
             alu_control = 4'b0110; // SUB for branch comparisons
+        end else if (opcode == `OP_LUI || opcode == `OP_AUIPC) begin
+            alu_control = 4'b0010; // ADD for LUI/AUIPC
         end else begin
             alu_control = 4'b1111; // NOP or undefined
             

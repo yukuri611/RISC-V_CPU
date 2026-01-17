@@ -29,6 +29,9 @@ module Decoder(
             `OP_JAL: begin // J-type
                 imm = {{12{instruction[31]}}, instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1'b0}; 
             end // I-type
+            `OP_LUI, `OP_AUIPC: begin
+                imm = {instruction[31:12], 12'b0};
+            end
             default: begin
                 imm = {{20{instruction[31]}}, instruction[31:20]};
             end

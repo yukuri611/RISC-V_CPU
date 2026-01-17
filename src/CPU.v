@@ -108,18 +108,19 @@ module CPU(
     reg alu_src_ctrl;
     reg mem_to_reg_ctrl;
     reg is_link_control;
+    reg [1:0] alu_src_a_ctrl;
 
 
     always @(*) begin
         // RegWrite
         case (opcode)
-            `OP_R_TYPE, `OP_IMM, `OP_LOAD, `OP_JAL, `OP_JALR: reg_write_ctrl = 1'b1;
+            `OP_R_TYPE, `OP_IMM, `OP_LOAD, `OP_JAL, `OP_JALR, `OP_LUI, `OP_AUIPC: reg_write_ctrl = 1'b1;
             default: reg_write_ctrl = 1'b0;
         endcase
 
         // ALUSrc
         case (opcode)
-            `OP_IMM, `OP_LOAD, `OP_STORE, `OP_JALR: alu_src_ctrl = 1'b1; // immediate
+            `OP_IMM, `OP_LOAD, `OP_STORE, `OP_LUI, `OP_AUIPC: alu_src_ctrl = 1'b1; // immediate
             default: alu_src_ctrl = 1'b0; // register
         endcase
 
@@ -134,6 +135,14 @@ module CPU(
             `OP_JAL, `OP_JALR: is_link_control = 1'b1;
             default: is_link_control = 1'b0;
         endcase
+
+        // ALUSrcA Control
+        case (opcode)
+            `OP_AUIPC: alu_src_a_ctrl = 2'b01; // PC
+            `OP_LUI:  alu_src_a_ctrl = 2'b10; // Zero
+            default:  alu_src_a_ctrl = 2'b00; // rs1
+        endcase
+
     end
 
     //Forwarding MUX
@@ -199,11 +208,10 @@ module CPU(
 
 
     // ID/Ex Pipeline Register
-    reg ID_Ex_Mem_Read, ID_Ex_Mem_Write, ID_Ex_Reg_Write, ID_Ex_Mem_to_Reg;
+    reg ID_Ex_Reg_Write, ID_Ex_ALU_Src, ID_Ex_Mem_to_Reg, ID_Ex_Is_Link, ID_Ex_ALU_Src_A, ID_Ex_Mem_Read, ID_Ex_Mem_Write;
     reg [31:0] ID_Ex_rs1_data, ID_Ex_rs2_data, ID_Ex_imm, ID_Ex_PC;
     reg [4:0]  ID_Ex_rd_index;
     reg [3:0]  ID_Ex_ALU_Control;
-    reg        ID_Ex_ALU_Src, ID_Ex_Is_Link;
 
 
     // =========================================================================
@@ -235,13 +243,17 @@ module CPU(
         end
     end
 
+
+    
+    reg [31:0] forwarded_rs1_data;
     reg [31:0] forwarded_rs2_data;
+
     always @(*) begin
         case (forward_a)
-            2'b00: alu_input1 = ID_Ex_rs1_data;
-            2'b10: alu_input1 = Ex_Mem_ALU_Result;
-            2'b01: alu_input1 = reg_write_data;
-            default: alu_input1 = ID_Ex_rs1_data;
+            2'b00: forwarded_rs1_data = ID_Ex_rs1_data;
+            2'b10: forwarded_rs1_data = Ex_Mem_ALU_Result;
+            2'b01: forwarded_rs1_data = reg_write_data;
+            default: forwarded_rs1_data = ID_Ex_rs1_data;
         endcase
 
         case (forward_b)
@@ -251,6 +263,12 @@ module CPU(
             default: forwarded_rs2_data = ID_Ex_rs2_data;
         endcase
 
+        case (ID_Ex_ALU_Src_A)
+            2'b00: alu_input1 = forwarded_rs1_data;
+            2'b01: alu_input1 = ID_Ex_PC;   // AUIPC
+            2'b10: alu_input1 = 32'b0;    // LUI
+            default: alu_input1 = forwarded_rs1_data;
+        endcase
         alu_input2 = ID_Ex_ALU_Src ? ID_Ex_imm : forwarded_rs2_data;
     end
 
@@ -357,6 +375,7 @@ module CPU(
                 ID_Ex_Reg_Write <= 1'b0;
                 ID_Ex_Mem_to_Reg <= 1'b0;
                 ID_Ex_Is_Link <= 1'b0;
+                ID_Ex_ALU_Src_A <= 1'b0;
 
                 // reset other signals for debugging clarity
                 ID_Ex_rd_index  <= 5'b0;
@@ -378,6 +397,7 @@ module CPU(
                 ID_Ex_ALU_Control <= alu_control;
                 ID_Ex_PC <= IF_ID_PC;
                 ID_Ex_Is_Link <= is_link_control;
+                ID_Ex_ALU_Src_A <= alu_src_a_ctrl;
             end
             // Ex/Mem Stage
             Ex_Mem_Mem_Read <= ID_Ex_Mem_Read;
