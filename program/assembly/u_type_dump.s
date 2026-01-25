@@ -22,7 +22,7 @@ Disassembly of section .text:
   20:	0040026f          	jal	tp,24 <Label_Next>
 
 00000024 <Label_Next>:
-  24:	00418193          	addi	gp,gp,4 # 20 <Label_AUIPC+0x4>
+  24:	00818193          	addi	gp,gp,8 # 24 <Label_Next>
   28:	00419663          	bne	gp,tp,34 <FAIL>
   2c:	00100f13          	li	t5,1
 

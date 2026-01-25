@@ -1,6 +1,7 @@
 module CPU_testbench;
     reg clk = 0;
     reg reset = 0;
+    wire [5:0] o_led;
 
     always #1 begin 
         clk = ~clk;
@@ -13,14 +14,15 @@ module CPU_testbench;
     
     CPU CPU(
         .clk(clk),
-        .reset(reset)
+        .reset(reset),
+        .o_led(o_led)
     );
 
     initial begin
         reset = 0;
-        #4
+        #2
         reset = 1;
-        #3000
+        #300
         $finish;
     end
 

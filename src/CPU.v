@@ -1,6 +1,7 @@
 module CPU(
     input wire clk,
-    input wire reset
+    input wire reset,
+    output reg [5:0] o_led
 );
 
     `include "src/include/define.vh"
@@ -289,15 +290,28 @@ module CPU(
     // =========================================================================
     // 4. MEM Stage (Memory Access)
     // =========================================================================
+    localparam LED_ADDRESS = 32'h0000007A;
+    wire is_led_access = (Ex_Mem_ALU_Result == LED_ADDRESS);
+    wire dmem_write_enable = Ex_Mem_Mem_Write && !is_led_access;
     wire [31:0] mem_read_data;
+
     DMem DMem(
         .clk(clk),
         .addr(Ex_Mem_ALU_Result),
         .write_data(Ex_Mem_rs2_data),
         .mem_read(Ex_Mem_Mem_Read),
-        .mem_write(Ex_Mem_Mem_Write),
+        .mem_write(dmem_write_enable),
         .read_data(mem_read_data)
     );
+
+    // MMIO - LED Control
+    always @(posedge clk) begin
+        if (!reset) begin
+            o_led <= 6'b111111;
+        end else if (Ex_Mem_Mem_Write && is_led_access) begin
+            o_led <= Ex_Mem_rs2_data[5:0];
+        end
+    end
 
     // Mem/WB Pipeline Register
     reg Mem_WB_Reg_Write, Mem_WB_Mem_to_Reg;

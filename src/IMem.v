@@ -8,7 +8,7 @@ module IMem(
     
 
     initial begin
-        $readmemh("program/hex/u_type.hex", memory);
+        $readmemh("program/hex/led.hex", memory);
     end
     
     
