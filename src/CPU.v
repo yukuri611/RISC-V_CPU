@@ -55,7 +55,8 @@ module CPU(
 
 
     // ---ID/Ex Pipeline Register---
-    reg ID_Ex_Reg_Write, ID_Ex_ALU_Src, ID_Ex_Mem_to_Reg, ID_Ex_Is_Link, ID_Ex_ALU_Src_A, ID_Ex_Mem_Read, ID_Ex_Mem_Write;
+    reg ID_Ex_Reg_Write, ID_Ex_ALU_Src, ID_Ex_Mem_to_Reg, ID_Ex_Is_Link,  ID_Ex_Mem_Read, ID_Ex_Mem_Write;
+    reg [1:0] ID_Ex_ALU_Src_A;
     reg [31:0] ID_Ex_rs1_data, ID_Ex_rs2_data, ID_Ex_imm, ID_Ex_PC;
     reg [4:0]  ID_Ex_rd_index, ID_Ex_rs1_index, ID_Ex_rs2_index;
     reg [3:0]  ID_Ex_ALU_Control;
@@ -417,7 +418,7 @@ module CPU(
                 ID_Ex_Reg_Write <= 1'b0;
                 ID_Ex_Mem_to_Reg <= 1'b0;
                 ID_Ex_Is_Link <= 1'b0;
-                ID_Ex_ALU_Src_A <= 1'b0;
+                ID_Ex_ALU_Src_A <= 2'b0;
 
                 // reset other signals for debugging clarity
                 ID_Ex_rd_index  <= 5'b0;

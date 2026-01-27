@@ -24,10 +24,10 @@ module Decoder(
                 imm = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]}; 
             end
             `OP_BRANCH: begin // B-type
-                imm = {{20{instruction[31]}}, instruction[31], instruction[7], instruction[30:25], instruction[11:8], 1'b0};
+                imm = {{20{instruction[31]}}, instruction[7], instruction[30:25], instruction[11:8], 1'b0};
             end
             `OP_JAL: begin // J-type
-                imm = {{12{instruction[31]}}, instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1'b0}; 
+                imm = {{12{instruction[31]}}, instruction[19:12], instruction[20], instruction[30:21], 1'b0}; 
             end // I-type
             `OP_LUI, `OP_AUIPC: begin
                 imm = {instruction[31:12], 12'b0};

@@ -16,7 +16,7 @@ module ClockDivider(
             counter <= 25'h00000000;
             clk_out <= ~clk_out;
         end else begin
-            counter <= counter + 1;
+            counter <= counter + 25'd1;
             clk_out <= clk_out;
         end
     end

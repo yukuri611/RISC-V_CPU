@@ -14,6 +14,7 @@ module ALU(
             4'b0111: alu_result <= (operand1 < operand2);
             4'b1100: alu_result <= ~(operand1 | operand2);
             4'b1110: alu_result <= operand1 << operand2[4:0];
+            default: alu_result <= 32'b0;
         endcase
     end
 endmodule
