@@ -15,8 +15,8 @@ module Top(
 
     CPU cpu_inst (
         .clk(cpu_clk),
-        .rst_n(sys_rst_n),
-        .button(button_in),
-        .led(led)
+        .reset(sys_rst_n),
+        .i_button(button_in),
+        .o_led(led)
     );
 endmodule
