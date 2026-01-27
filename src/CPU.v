@@ -1,6 +1,7 @@
 module CPU(
     input wire clk,
     input wire reset,
+    input wire i_button,
     output reg [5:0] o_led
 );
 
@@ -9,6 +10,17 @@ module CPU(
     // =========================================================================
     // 1. IF Stage (Instruction Fetch)
     // =========================================================================
+
+    reg button_sync_0, button_sync_1;
+    always @(posedge clk or negedge reset) begin
+        if (!reset) begin
+            button_sync_0 <= 1'b1;
+            button_sync_1 <= 1'b1;
+        end else begin
+            button_sync_0 <= i_button;
+            button_sync_1 <= button_sync_0;
+        end
+    end
 
     wire [31:0] current_pc;
     reg [31:0] next_pc;
@@ -291,6 +303,8 @@ module CPU(
     // 4. MEM Stage (Memory Access)
     // =========================================================================
     localparam LED_ADDRESS = 32'h0000007A;
+    localparam BUTTON_ADDRESS = 32'h0000007B;
+
     wire is_led_access = (Ex_Mem_ALU_Result == LED_ADDRESS);
     wire dmem_write_enable = Ex_Mem_Mem_Write && !is_led_access;
     wire [31:0] mem_read_data;
@@ -312,6 +326,8 @@ module CPU(
             o_led <= Ex_Mem_rs2_data[5:0];
         end
     end
+    
+
 
     // Mem/WB Pipeline Register
     reg Mem_WB_Reg_Write, Mem_WB_Mem_to_Reg;
@@ -429,7 +445,11 @@ module CPU(
             // Mem/WB Stage
             Mem_WB_Reg_Write <= Ex_Mem_Reg_Write;
             Mem_WB_Mem_to_Reg <= Ex_Mem_Mem_to_Reg;
-            Mem_WB_Read_Data <= mem_read_data;
+            if (Ex_Mem_ALU_Result == BUTTON_ADDRESS) begin
+                Mem_WB_Read_Data <= {31'b0 , ~button_sync_1};
+            end else begin
+                Mem_WB_Read_Data <= mem_read_data;
+            end
             Mem_WB_ALU_Result <= Ex_Mem_ALU_Result;
             Mem_WB_rd_index <= Ex_Mem_rd_index;
         end

@@ -1,5 +1,5 @@
 @echo off
-set FILE_NAME=led
+set FILE_NAME=button
 set TARGET=program\hex\%FILE_NAME%
 rem メインのアセンブリソース
 set SOURCE_MAIN=program\assembly\%FILE_NAME%.s
