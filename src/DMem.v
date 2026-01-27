@@ -10,11 +10,13 @@ module DMem(
    
     reg [31:0] memory [0:4095];
 
+    `ifdef IVARILOG
     initial begin 
         for (integer i = 0; i < 4096; i = i + 1) begin
             memory[i] = 32'b0;
         end
     end
+    `endif
     
     always @(posedge clk) begin
         if (mem_write) begin
