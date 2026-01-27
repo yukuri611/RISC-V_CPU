@@ -9,7 +9,7 @@ module Decoder(
     output wire [4:0] rd,
     output wire [6:0] opcode
 );
-    `include "src/include/define.vh"
+    `include "define.vh"
     
     assign funct7 = instruction[31:25];
     assign rs2 = instruction[24:20];
