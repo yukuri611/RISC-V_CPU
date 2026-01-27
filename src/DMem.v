@@ -4,7 +4,7 @@ module DMem(
     input wire [31:0] write_data,
     input wire mem_read,
     input wire mem_write,
-    output wire [31:0] read_data
+    output reg [31:0] read_data
 );
 
    
@@ -18,11 +18,12 @@ module DMem(
     end
     `endif
     
-    always @(posedge clk) begin
+    always @(negedge clk) begin
         if (mem_write) begin
             memory[addr[13:2]] <= write_data;
         end
+        if (mem_read) begin
+            read_data <= memory[addr[13:2]];
+        end
     end
-
-    assign read_data = (mem_read) ? memory[addr[13:2]] : 32'b0;
 endmodule
