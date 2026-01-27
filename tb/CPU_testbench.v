@@ -19,7 +19,7 @@ module CPU_testbench;
         .i_button(i_button),
         .o_led(o_led)
     );
-
+    
     initial begin
         reset = 0;
         #10

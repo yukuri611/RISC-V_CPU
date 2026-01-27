@@ -1,5 +1,7 @@
-tb/CPU_testbench.v
+tb/Top_testbench.v
 
+src/Top.v
+src/ClockDivider.v
 src/CPU.v
 src/PC.v               
 src/ALU.v

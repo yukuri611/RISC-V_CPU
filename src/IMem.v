@@ -6,7 +6,7 @@ module IMem(
     reg [31:0] memory [0:4095];
 
     initial begin
-        $readmemh("program/hex/button.hex", memory);
+        $readmemh("program/hex/led.hex", memory);
     end
     
     always @(negedge clk) begin

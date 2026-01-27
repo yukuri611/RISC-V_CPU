@@ -17,7 +17,9 @@ module HazardDetectionUnit(
                    ((ID_Ex_rd == IF_Id_rs1) || (ID_Ex_rd == IF_Id_rs2));
         
     assign branch_data_hazard = is_branch && (
-        (Ex_Mem_Mem_Read && (Ex_Mem_rd != 0) && 
+        (ID_Ex_Reg_Write && (ID_Ex_rd != 5'b0) &&
+            ((ID_Ex_rd == IF_Id_rs1) || (ID_Ex_rd == IF_Id_rs2))) ||
+        (Ex_Mem_Mem_Read && (Ex_Mem_rd != 5'b0) && 
             ((Ex_Mem_rd == IF_Id_rs1) || (Ex_Mem_rd == IF_Id_rs2)))
     );
 
