@@ -5,7 +5,7 @@ module ALUControl(
     input wire [2:0] funct3,
     output reg [3:0] alu_control
 );
-    `include "src/include/define.vh"
+    `include "define.vh"
     always @(*) begin
         if (opcode == `OP_LOAD || opcode == `OP_STORE) begin
             alu_control = 4'b0010; // Load/Store: ADD

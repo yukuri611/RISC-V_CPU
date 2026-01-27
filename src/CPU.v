@@ -5,7 +5,7 @@ module CPU(
     output reg [5:0] o_led
 );
 
-    `include "src/include/define.vh"
+    `include "define.vh"
 
     // =========================================================================
     // 0. Declarations
