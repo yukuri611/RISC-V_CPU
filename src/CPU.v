@@ -8,10 +8,86 @@ module CPU(
     `include "src/include/define.vh"
 
     // =========================================================================
-    // 1. IF Stage (Instruction Fetch)
+    // 0. Declarations
     // =========================================================================
 
+    // --- Button Synchronization Signals ---
     reg button_sync_0, button_sync_1;
+
+    // --- IF Stage Signals ---
+    wire [31:0] current_pc;
+    reg [31:0] next_pc;
+    reg [31:0] next_pc_final;
+    wire [31:0] instruction;
+    
+    // --- IF/ID Pipeline Register ---
+    reg [31:0] IF_ID_PC;
+    reg [31:0] IF_ID_Instruction;
+
+    // --- ID Stage Signals ---
+    wire [6:0] opcode;
+    wire [4:0] rs1, rs2, rd;
+    wire [2:0] funct3;
+    wire [6:0] funct7;
+    wire [31:0] imm;
+    wire [3:0] alu_control;
+    wire [31:0] reg_read_data1, reg_read_data2;
+    reg [31:0] reg_write_data;
+    
+    // Control Unit Signals
+    reg reg_write_ctrl;
+    reg alu_src_ctrl;
+    reg mem_to_reg_ctrl;
+    reg is_link_control;
+    reg [1:0] alu_src_a_ctrl;
+
+    
+    // Hazard & Branch Logic Signals
+    wire stall;          
+    reg branch_taken;
+    wire is_branch_instruction;
+    reg [31:0] pc_plus_4;
+    reg [31:0] pc_branch;
+    reg [31:0] branch_op1, branch_op2;
+    wire is_equal;
+    wire is_less_signed;
+    wire is_less_unsigned;
+
+
+    // ---ID/Ex Pipeline Register---
+    reg ID_Ex_Reg_Write, ID_Ex_ALU_Src, ID_Ex_Mem_to_Reg, ID_Ex_Is_Link, ID_Ex_ALU_Src_A, ID_Ex_Mem_Read, ID_Ex_Mem_Write;
+    reg [31:0] ID_Ex_rs1_data, ID_Ex_rs2_data, ID_Ex_imm, ID_Ex_PC;
+    reg [4:0]  ID_Ex_rd_index, ID_Ex_rs1_index, ID_Ex_rs2_index;
+    reg [3:0]  ID_Ex_ALU_Control;
+
+
+    // --- EX Stage Signals ---
+    reg [31:0] alu_input1;
+    reg [31:0] alu_input2;
+    wire [31:0] alu_result;
+    
+    // Forwarding Signals
+    reg [1:0] forward_a, forward_b;
+    reg [31:0] forwarded_rs1_data;
+    reg [31:0] forwarded_rs2_data;
+
+    // --- Ex/Mem Pipeline Register ---
+    reg Ex_Mem_Mem_Read, Ex_Mem_Mem_Write, Ex_Mem_Reg_Write, Ex_Mem_Mem_to_Reg;
+    reg [31:0] Ex_Mem_ALU_Result, Ex_Mem_rs2_data;
+    reg [4:0]  Ex_Mem_rd_index;
+
+    // --- MEM Stage Signals ---
+    localparam LED_ADDRESS    = 32'h0000007A;
+    localparam BUTTON_ADDRESS = 32'h0000007B;
+    wire is_led_access;
+    wire dmem_write_enable;
+    wire [31:0] mem_read_data;
+
+    // --- Mem/WB Pipeline Register ---
+    reg Mem_WB_Reg_Write, Mem_WB_Mem_to_Reg;
+    reg [31:0] Mem_WB_Read_Data, Mem_WB_ALU_Result;
+    reg [4:0]  Mem_WB_rd_index;
+    
     always @(posedge clk or negedge reset) begin
         if (!reset) begin
             button_sync_0 <= 1'b1;
@@ -22,9 +98,6 @@ module CPU(
         end
     end
 
-    wire [31:0] current_pc;
-    reg [31:0] next_pc;
-    reg [31:0] next_pc_final;
 
     PC PC(
         .clk(clk), 
@@ -42,7 +115,6 @@ module CPU(
         end
     end
     
-    wire [31:0] instruction;
 
     IMem IMem(
         .clk(clk),
@@ -50,23 +122,10 @@ module CPU(
         .instruction(instruction)
     );
 
-    // IF/ID Pipeline Register
-    reg [31:0] IF_ID_PC;
-    reg [31:0] IF_ID_Instruction;
-
 
     // =========================================================================
     // 2. ID Stage (Instruction Decode)
     // =========================================================================
-    wire [6:0] opcode;
-    wire [4:0] rs1, rs2, rd;
-    wire [2:0] funct3;
-    wire [6:0] funct7;
-    wire [31:0] imm;
-    wire [3:0] alu_control;
-    wire [31:0] reg_read_data1, reg_read_data2;
-    
-    reg [31:0] reg_write_data;
 
     Decoder Decoder(
         .clk(clk),
@@ -100,8 +159,8 @@ module CPU(
         .read_data2(reg_read_data2)
     );
 
-    wire is_branch_instruction = (opcode == `OP_BRANCH) || (opcode == `OP_JAL) || (opcode == `OP_JALR);
-    wire stall;
+    assign is_branch_instruction = ((opcode == `OP_BRANCH) || (opcode == `OP_JAL) || (opcode == `OP_JALR));
+
 
     HazardDetectionUnit HazardDetectionUnit(
         .ID_Ex_Mem_Read(ID_Ex_Mem_Read),
@@ -117,13 +176,6 @@ module CPU(
     );
 
     // Control Unit Logic
-    reg reg_write_ctrl;
-    reg alu_src_ctrl;
-    reg mem_to_reg_ctrl;
-    reg is_link_control;
-    reg [1:0] alu_src_a_ctrl;
-
-
     always @(*) begin
         // RegWrite
         case (opcode)
@@ -159,7 +211,6 @@ module CPU(
     end
 
     //Forwarding MUX
-    reg [31:0] branch_op1, branch_op2;
     always @(*) begin
         if (ID_Ex_Reg_Write && (ID_Ex_rd_index != 0) && (ID_Ex_rd_index == rs1)) begin
             branch_op1 = alu_result;
@@ -180,14 +231,9 @@ module CPU(
     
     
     // branch jump logic
-    reg [31:0] pc_plus_4;
-    reg [31:0] pc_branch;
-    reg branch_taken;
-    wire is_equal = (branch_op1 == branch_op2);
-    wire is_less_signed = ($signed(branch_op1) < $signed(branch_op2));
-    wire is_less_unsigned = (branch_op1 < branch_op2);
-
-
+    assign is_equal = (branch_op1 == branch_op2);
+    assign is_less_signed = ($signed(branch_op1) < $signed(branch_op2));
+    assign is_less_unsigned = (branch_op1 < branch_op2);
     always @(*) begin
         branch_taken = 1'b0;
         pc_plus_4 = current_pc + 4;
@@ -220,24 +266,11 @@ module CPU(
     end
 
 
-    // ID/Ex Pipeline Register
-    reg ID_Ex_Reg_Write, ID_Ex_ALU_Src, ID_Ex_Mem_to_Reg, ID_Ex_Is_Link, ID_Ex_ALU_Src_A, ID_Ex_Mem_Read, ID_Ex_Mem_Write;
-    reg [31:0] ID_Ex_rs1_data, ID_Ex_rs2_data, ID_Ex_imm, ID_Ex_PC;
-    reg [4:0]  ID_Ex_rd_index;
-    reg [3:0]  ID_Ex_ALU_Control;
-
-
     // =========================================================================
     // 3. EX Stage (Execute)
     // =========================================================================
-    reg [31:0] alu_input1;
-    reg [31:0] alu_input2;
-    wire [31:0] alu_result;
 
     // Forwarding Mux
-
-    reg[1:0] forward_a, forward_b;
-
     always @(*) begin
         if (Ex_Mem_Reg_Write && (Ex_Mem_rd_index != 0) && (Ex_Mem_rd_index == ID_Ex_rs1_index)) begin
             forward_a = 2'b10;
@@ -255,11 +288,6 @@ module CPU(
             forward_b = 2'b00;
         end
     end
-
-
-    
-    reg [31:0] forwarded_rs1_data;
-    reg [31:0] forwarded_rs2_data;
 
     always @(*) begin
         case (forward_a)
@@ -293,21 +321,12 @@ module CPU(
         .alu_result(alu_result)
     );
 
-    // Ex/Mem Pipeline Register
-    reg Ex_Mem_Mem_Read, Ex_Mem_Mem_Write, Ex_Mem_Reg_Write, Ex_Mem_Mem_to_Reg;
-    reg [31:0] Ex_Mem_ALU_Result, Ex_Mem_rs2_data;
-    reg [4:0]  ID_Ex_rs1_index, ID_Ex_rs2_index, Ex_Mem_rd_index;
-
 
     // =========================================================================
     // 4. MEM Stage (Memory Access)
     // =========================================================================
-    localparam LED_ADDRESS = 32'h0000007A;
-    localparam BUTTON_ADDRESS = 32'h0000007B;
-
-    wire is_led_access = (Ex_Mem_ALU_Result == LED_ADDRESS);
-    wire dmem_write_enable = Ex_Mem_Mem_Write && !is_led_access;
-    wire [31:0] mem_read_data;
+    assign is_led_access = (Ex_Mem_ALU_Result == LED_ADDRESS);
+    assign dmem_write_enable = Ex_Mem_Mem_Write && !is_led_access;
 
     DMem DMem(
         .clk(clk),
@@ -326,13 +345,6 @@ module CPU(
             o_led <= Ex_Mem_rs2_data[5:0];
         end
     end
-    
-
-
-    // Mem/WB Pipeline Register
-    reg Mem_WB_Reg_Write, Mem_WB_Mem_to_Reg;
-    reg [31:0] Mem_WB_Read_Data, Mem_WB_ALU_Result;
-    reg [4:0]  Mem_WB_rd_index;
 
 
     // =========================================================================
