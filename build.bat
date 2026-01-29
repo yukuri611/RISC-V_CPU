@@ -1,5 +1,5 @@
 @echo off
-set FILE_NAME=led
+set FILE_NAME=sum_show_led
 set TARGET=program\hex\%FILE_NAME%
 set SOURCE_C=program\c\%FILE_NAME%.c
 set SOURCE_ASM=program\assembly\start.s

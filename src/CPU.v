@@ -343,7 +343,7 @@ module CPU(
         if (!reset) begin
             o_led <= 6'b111111;
         end else if (Ex_Mem_Mem_Write && is_led_access) begin
-            o_led <= Ex_Mem_rs2_data[5:0];
+            o_led <= ~Ex_Mem_rs2_data[5:0];
         end
     end
 
